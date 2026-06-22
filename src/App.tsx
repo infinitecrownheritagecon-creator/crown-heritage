@@ -16,6 +16,25 @@ import {
   CourseRegistration
 } from './types';
 
+import {
+  isSupabaseConfigured,
+  fetchSupabaseStudents,
+  fetchSupabaseCourses,
+  fetchSupabaseResults,
+  fetchSupabaseFees,
+  fetchSupabaseApplications,
+  fetchSupabaseNotices,
+  fetchSupabaseActivityLogs,
+  fetchSupabaseCourseRegistrations,
+  upsertSupabaseStudents,
+  upsertSupabaseCourses,
+  upsertSupabaseResults,
+  upsertSupabaseFees,
+  upsertSupabaseApplications,
+  upsertSupabaseNotices,
+  upsertSupabaseCourseRegistrations
+} from './lib/supabaseClient.ts';
+
 import LandingPage from './components/LandingPage';
 import AdmissionForm from './components/AdmissionForm';
 import StudentPortal from './components/StudentPortal';
@@ -79,6 +98,60 @@ export default function App() {
     setActiveSemester(activeCal.semester);
     setLoggedInAdmin(adminSession);
 
+    // Dynamic Cloud Data Hydration
+    const hydrateCloudData = async () => {
+      if (isSupabaseConfigured()) {
+        try {
+          const remoteStudents = await fetchSupabaseStudents();
+          const remoteCourses = await fetchSupabaseCourses();
+          const remoteResults = await fetchSupabaseResults();
+          const remoteFees = await fetchSupabaseFees();
+          const remoteApps = await fetchSupabaseApplications();
+          const remoteNotices = await fetchSupabaseNotices();
+          const remoteLogs = await fetchSupabaseActivityLogs();
+          const remoteRegistrations = await fetchSupabaseCourseRegistrations();
+
+          if (remoteStudents.length > 0) {
+            setStudents(remoteStudents);
+            saveLocalStorageData('chch_students', remoteStudents);
+          }
+          if (remoteCourses.length > 0) {
+            setCourses(remoteCourses);
+            saveLocalStorageData('chch_courses', remoteCourses);
+          }
+          if (remoteResults.length > 0) {
+            setResults(remoteResults);
+            saveLocalStorageData('chch_results', remoteResults);
+          }
+          if (remoteFees.length > 0) {
+            setFees(remoteFees);
+            saveLocalStorageData('chch_fees', remoteFees);
+          }
+          if (remoteApps.length > 0) {
+            setApplications(remoteApps);
+            saveLocalStorageData('chch_applications', remoteApps);
+          }
+          if (remoteNotices.length > 0) {
+            setNotices(remoteNotices);
+            saveLocalStorageData('chch_notices', remoteNotices);
+          }
+          if (remoteLogs.length > 0) {
+            setActivityLogs(remoteLogs);
+            saveLocalStorageData('chch_activity_logs', remoteLogs);
+          }
+          if (remoteRegistrations.length > 0) {
+            setRegistrations(remoteRegistrations);
+            saveLocalStorageData('chch_registrations', remoteRegistrations);
+          }
+
+          handleAddToast('Synchronized student entries from Supabase Cloud successfully.', 'success');
+        } catch (error) {
+          console.warn('Could not default to Supabase cloud tables. Operating in local-offline state:', error);
+        }
+      }
+    };
+    hydrateCloudData();
+
     if (studentSession) {
       const match = fetchedStudents.find(s => s.matricNo === studentSession);
       if (match) {
@@ -94,36 +167,57 @@ export default function App() {
   const handleSetStudents = (updated: Student[]) => {
     setStudents(updated);
     saveLocalStorageData('chch_students', updated);
+    if (isSupabaseConfigured()) {
+      upsertSupabaseStudents(updated).catch(err => console.error('Supabase async sync failed:', err));
+    }
   };
 
   const handleSetCourses = (updated: Course[]) => {
     setCourses(updated);
     saveLocalStorageData('chch_courses', updated);
+    if (isSupabaseConfigured()) {
+      upsertSupabaseCourses(updated).catch(err => console.error('Supabase async sync failed:', err));
+    }
   };
 
   const handleSetResults = (updated: Result[]) => {
     setResults(updated);
     saveLocalStorageData('chch_results', updated);
+    if (isSupabaseConfigured()) {
+      upsertSupabaseResults(updated).catch(err => console.error('Supabase async sync failed:', err));
+    }
   };
 
   const handleSetFees = (updated: Fee[]) => {
     setFees(updated);
     saveLocalStorageData('chch_fees', updated);
+    if (isSupabaseConfigured()) {
+      upsertSupabaseFees(updated).catch(err => console.error('Supabase async sync failed:', err));
+    }
   };
 
   const handleSetApplications = (updated: Application[]) => {
     setApplications(updated);
     saveLocalStorageData('chch_applications', updated);
+    if (isSupabaseConfigured()) {
+      upsertSupabaseApplications(updated).catch(err => console.error('Supabase async sync failed:', err));
+    }
   };
 
   const handleSetNotices = (updated: Notice[]) => {
     setNotices(updated);
     saveLocalStorageData('chch_notices', updated);
+    if (isSupabaseConfigured()) {
+      upsertSupabaseNotices(updated).catch(err => console.error('Supabase async sync failed:', err));
+    }
   };
 
   const handleSetRegistrations = (updated: CourseRegistration[]) => {
     setRegistrations(updated);
     saveLocalStorageData('chch_registrations', updated);
+    if (isSupabaseConfigured()) {
+      upsertSupabaseCourseRegistrations(updated).catch(err => console.error('Supabase async sync failed:', err));
+    }
   };
 
   const handleUpdateActiveCalendar = (session: string, semester: 'First' | 'Second') => {
@@ -239,6 +333,7 @@ export default function App() {
           notices={notices}
           activityLogs={activityLogs}
           registrations={registrations}
+          onSetRegistrations={handleSetRegistrations}
           activeSession={activeSession}
           activeSemester={activeSemester}
           onUpdateActiveCalendar={handleUpdateActiveCalendar}

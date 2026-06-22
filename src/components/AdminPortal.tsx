@@ -1,6 +1,26 @@
 import React, { useState } from 'react';
 import { Student, Course, Result, Fee, Application, Notice, ActivityLog, CourseRegistration } from '../types';
 import { calculateGradeAndPoints, logAction } from '../seed';
+import {
+  isSupabaseConfigured,
+  SUPABASE_SQL_SCHEMA,
+  fetchSupabaseStudents,
+  fetchSupabaseCourses,
+  fetchSupabaseResults,
+  fetchSupabaseFees,
+  fetchSupabaseApplications,
+  fetchSupabaseNotices,
+  fetchSupabaseActivityLogs,
+  fetchSupabaseCourseRegistrations,
+  upsertSupabaseStudents,
+  upsertSupabaseCourses,
+  upsertSupabaseResults,
+  upsertSupabaseFees,
+  upsertSupabaseApplications,
+  upsertSupabaseNotices,
+  upsertSupabaseActivityLogs,
+  upsertSupabaseCourseRegistrations
+} from '../lib/supabaseClient.ts';
 
 interface AdminPortalProps {
   onBack: () => void;
@@ -12,6 +32,7 @@ interface AdminPortalProps {
   notices: Notice[];
   activityLogs: ActivityLog[];
   registrations: CourseRegistration[];
+  onSetRegistrations: (registrations: CourseRegistration[]) => void;
   activeSession: string;
   activeSemester: 'First' | 'Second';
   onUpdateActiveCalendar: (session: string, semester: 'First' | 'Second') => void;
@@ -47,6 +68,7 @@ export default function AdminPortal({
   notices,
   activityLogs,
   registrations,
+  onSetRegistrations,
   activeSession,
   activeSemester,
   onUpdateActiveCalendar,
@@ -67,7 +89,101 @@ export default function AdminPortal({
   const [loginError, setLoginError] = useState('');
 
   // Dashboard navigation tabs
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'applications' | 'courses' | 'results' | 'fees' | 'notices'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'applications' | 'courses' | 'results' | 'fees' | 'notices' | 'supabase'>('overview');
+
+  // Supabase Integration state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [sqlCopied, setSqlCopied] = useState(false);
+
+  const handleSyncToSupabase = async () => {
+    if (!isSupabaseConfigured()) {
+      onAddToast('Supabase is not configured! Please configure credentials in your secrets first.', 'error');
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      setSyncStatus('Synchronizing matriculated students (students)...');
+      await upsertSupabaseStudents(students);
+
+      setSyncStatus('Synchronizing undergraduate syllabus (courses)...');
+      await upsertSupabaseCourses(courses);
+
+      setSyncStatus('Synchronizing examination grades (results)...');
+      await upsertSupabaseResults(results);
+
+      setSyncStatus('Synchronizing student financial ledgers (fees)...');
+      await upsertSupabaseFees(fees);
+
+      setSyncStatus('Synchronizing admissions desk records (applications)...');
+      await upsertSupabaseApplications(applications);
+
+      setSyncStatus('Synchronizing digital bulletins (notices)...');
+      await upsertSupabaseNotices(notices);
+
+      setSyncStatus('Synchronizing security log histories (activity_logs)...');
+      await upsertSupabaseActivityLogs(activityLogs);
+
+      setSyncStatus('Synchronizing course registries (registrations)...');
+      await upsertSupabaseCourseRegistrations(registrations);
+
+      onAddToast('All application tables synchronized successfully with Supabase!', 'success');
+    } catch (error: any) {
+      console.error(error);
+      onAddToast('Synchronization failed: ' + (error.message || error), 'error');
+    } finally {
+      setIsSyncing(false);
+      setSyncStatus('');
+    }
+  };
+
+  const handlePullFromSupabase = async () => {
+    if (!isSupabaseConfigured()) {
+      onAddToast('Supabase is not configured! Please configure credentials in your secrets first.', 'error');
+      return;
+    }
+    if (!confirm('Are you absolutely sure you want to pull data from Supabase? This will overwrite your current browser local storage state.')) {
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      setSyncStatus('Pulling students...');
+      const remoteStudents = await fetchSupabaseStudents();
+      if (remoteStudents.length > 0) onSetStudents(remoteStudents);
+
+      setSyncStatus('Pulling syllabus courses...');
+      const remoteCourses = await fetchSupabaseCourses();
+      if (remoteCourses.length > 0) onSetCourses(remoteCourses);
+
+      setSyncStatus('Pulling results...');
+      const remoteResults = await fetchSupabaseResults();
+      if (remoteResults.length > 0) onSetResults(remoteResults);
+
+      setSyncStatus('Pulling financial fees...');
+      const remoteFees = await fetchSupabaseFees();
+      if (remoteFees.length > 0) onSetFees(remoteFees);
+
+      setSyncStatus('Pulling admission applications...');
+      const remoteApps = await fetchSupabaseApplications();
+      if (remoteApps.length > 0) onSetApplications(remoteApps);
+
+      setSyncStatus('Pulling notifications/notices...');
+      const remoteNotices = await fetchSupabaseNotices();
+      if (remoteNotices.length > 0) onSetNotices(remoteNotices);
+
+      setSyncStatus('Pulling course registrations...');
+      const remoteRegistrations = await fetchSupabaseCourseRegistrations();
+      if (remoteRegistrations.length > 0) onSetRegistrations(remoteRegistrations);
+
+      onAddToast('Successfully downloaded and merged remote Supabase records!', 'success');
+    } catch (error: any) {
+      console.error(error);
+      onAddToast('Data pull failed: ' + (error.message || error), 'error');
+    } finally {
+      setIsSyncing(false);
+      setSyncStatus('');
+    }
+  };
 
   // Search & Filtering states
   const [studentSearch, setStudentSearch] = useState('');
@@ -810,6 +926,13 @@ export default function AdminPortal({
             className={`w-full flex items-center px-6 py-3 text-left transition-all cursor-pointer ${activeTab === 'notices' ? 'bg-[#1A2E54] border-r-4 border-[#D4A017] text-white' : 'text-[#8C9BB4] hover:bg-[#1A2E54]/40 hover:text-white'}`}
           >
             <span className="mr-3">📢</span> <span className="text-xs font-semibold">News Announcements</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('supabase')}
+            className={`w-full flex items-center px-6 py-3 text-left transition-all cursor-pointer ${activeTab === 'supabase' ? 'bg-[#1A2E54] border-r-4 border-[#D4A017] text-[#D4A017] font-bold' : 'text-[#8C9BB4] hover:bg-[#1A2E54]/40 hover:text-white'}`}
+          >
+            <span className="mr-3 text-amber-400">⚡</span> <span className="text-xs font-semibold">Supabase Cloud</span>
           </button>
         </nav>
 
@@ -1631,6 +1754,196 @@ export default function AdminPortal({
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 8: SUPABASE CLOUD HOSTING HUB */}
+          {activeTab === 'supabase' && (
+            <div className="space-y-6 flex-grow flex flex-col animate-fade-in">
+              
+              {/* CONNECTIVITY STATUS CARD */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-2xl">
+                      ⚡
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-poppins font-extrabold text-[#0A1F44] uppercase tracking-wider">Supabase Integration Engine</h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Link this client portal to your secure cloud database on supabase.com</p>
+                    </div>
+                  </div>
+
+                  {isSupabaseConfigured() ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Cloud Connected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black uppercase rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                      Sandbox Local Storage Mode
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-600 leading-relaxed font-sans">
+                  {isSupabaseConfigured() ? (
+                    <div>
+                      <span className="font-bold text-[#0A1F44]">Target Instance:</span>{' '}
+                      <code className="bg-[#0A1F44]/5 text-[#0A1F44] px-1.5 py-0.5 rounded font-mono break-all">
+                        {(import.meta as any).env.VITE_SUPABASE_URL}
+                      </code>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        The application is fully initialized. Creating, updating or reviewing records across the student management desk will write directly into your remote PostgreSQL tables.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-bold text-slate-700 block mb-1">💡 How to enable Supabase Cloud hosting:</span>
+                      <ol className="list-decimal pl-4 space-y-1 text-slate-500 text-[11px]">
+                        <li>Go to <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-amber-600 underline font-semibold">supabase.com</a>, register a free project, and navigate to Project Settings &rarr; API.</li>
+                        <li>Configure the environment variables in the <strong>Secrets panel</strong> or local configuration:</li>
+                      </ol>
+                      <div className="mt-3 bg-[#0A1F44] text-amber-400 p-3 rounded-xl font-mono text-[10px] space-y-1">
+                        <div>VITE_SUPABASE_URL=https://your-project-id.supabase.co</div>
+                        <div>VITE_SUPABASE_ANON_KEY=your-anon-role-key</div>
+                      </div>
+                      <p className="mt-3 text-[10px] text-slate-400 italic">
+                        Currently, all operations are safely performed offline using your browser's persistent LocalStorage system. No data is lost!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* DATA HARMONIZATION MATRIX (SYNC CONTROL CENTER) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* SYNC ACTIONS PANEL */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-poppins font-extrabold text-[#0A1F44] uppercase tracking-wider mb-2">
+                       Data Sync Controls
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mb-4">
+                      Upload your current student dossiers, exam metrics, and admissions databases straight to the cloud tables, or retrieve remote data.
+                    </p>
+
+                    {/* Quick Counts review */}
+                    <div className="grid grid-cols-3 gap-2 py-3 bg-slate-50 rounded-2xl px-4 border border-slate-100 mb-6 font-mono text-[10px]">
+                      <div className="text-center">
+                        <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Students</span>
+                        <strong className="text-sm font-bold text-[#0A1F44]">{students.length}</strong>
+                      </div>
+                      <div className="text-center border-x">
+                        <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Admissions</span>
+                        <strong className="text-sm font-bold text-[#0A1F44]">{applications.length}</strong>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-slate-400 text-[8px] uppercase tracking-wider block">Ledger Fees</span>
+                        <strong className="text-sm font-bold text-[#0A1F44]">{fees.length}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleSyncToSupabase}
+                      disabled={isSyncing}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        isSyncing
+                          ? 'bg-slate-100 text-slate-400'
+                          : 'bg-[#0A1F44] text-[#D4A017] hover:bg-slate-800 hover:shadow-md'
+                      }`}
+                    >
+                      {isSyncing ? (
+                        <span className="inline-block w-4 h-4 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin"></span>
+                      ) : (
+                        <span>📤</span>
+                      )}
+                      Upload Local Data to Supabase
+                    </button>
+
+                    <button
+                      onClick={handlePullFromSupabase}
+                      disabled={isSyncing}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                        isSyncing
+                          ? 'bg-slate-100 text-slate-400'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {isSyncing ? (
+                        <span className="inline-block w-4 h-4 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin"></span>
+                      ) : (
+                        <span>📥</span>
+                      )}
+                      Fetch Remote Cloud State
+                    </button>
+
+                    {isSyncing && syncStatus && (
+                      <div className="text-center p-2 rounded-lg bg-amber-50 border border-amber-100 text-[10px] text-amber-800 font-medium">
+                        {syncStatus}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* POSTGRESQL HOSTING MANUAL PANEL */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-poppins font-extrabold text-[#0A1F44] uppercase tracking-wider mb-2">
+                      Database Deployment Guide
+                    </h3>
+                    <p className="text-[11px] text-slate-500 leading-relaxed space-y-2">
+                      Supabase databases run on absolute PostgreSQL. To host all features securely, perform the following:
+                    </p>
+                    <ul className="list-disc pl-4 mt-3 space-y-2 text-[10px] text-slate-500">
+                      <li>Use our generated DDL schema definition on the right block.</li>
+                      <li>Go to <strong>SQL Editor</strong> on the Supabase Sidebar and create a new query.</li>
+                      <li>Paste the SQL instructions exactly and press <strong>Run</strong>. This configures columns, primary keys, relationships, and row level security.</li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+                    <span className="text-[10px] font-mono text-[#D4A017] font-bold uppercase tracking-wider block bg-amber-500/5 py-2 rounded-xl border border-amber-500/10">
+                      ✓ Zero Dependencies Setup — Easy Copy/Paste
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* POSTGRESQL SCHEMA CODE DESK */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex-grow flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h4 className="text-xs font-poppins font-extrabold text-[#0A1F44] uppercase tracking-wider">
+                      PostgreSQL DDL SQL Schema Script
+                    </h4>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Copies directly into Supabase's SQL editor desk to generate all required tables.</p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+                      setSqlCopied(true);
+                      onAddToast('SQL Schema script copied to clipboard!', 'success');
+                      setTimeout(() => setSqlCopied(false), 2000);
+                    }}
+                    className="bg-[#0A1F44]/5 text-[#0A1F44] hover:bg-[#0A1F44] hover:text-[#D4A017] transition-all px-3.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 cursor-pointer border"
+                  >
+                    <span>{sqlCopied ? '✓' : '📋'}</span>
+                    {sqlCopied ? 'Copied script!' : 'Copy SQL Schema'}
+                  </button>
+                </div>
+
+                <div className="flex-1 bg-[#0A1F44] text-slate-300 p-4 rounded-2xl overflow-y-auto max-h-96 font-mono text-[10px] border border-[#0A1F44]/80 select-all select-none whitespace-pre leading-relaxed">
+                  {SUPABASE_SQL_SCHEMA}
+                </div>
+              </div>
+
             </div>
           )}
 
