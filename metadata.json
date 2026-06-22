@@ -1,0 +1,6 @@
+{
+  "name": "Crown Heritage College of Health",
+  "description": "A comprehensive health college management system and student portal for Crown Heritage College of Health, Nigeria.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
