@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Student, Course, Result, Fee } from '../types';
+import { Student, Course, Result, Fee, CourseRegistration } from '../types';
 import { calculateGradeAndPoints } from '../seed';
 
 interface StudentPortalProps {
@@ -8,6 +8,10 @@ interface StudentPortalProps {
   courses: Course[];
   results: Result[];
   fees: Fee[];
+  registrations: CourseRegistration[];
+  onSetRegistrations: (regs: CourseRegistration[]) => void;
+  activeSession: string;
+  activeSemester: 'First' | 'Second';
   onLogout: () => void;
   loggedInStudent: Student | null;
   onLoginSuccess: (student: Student) => void;
@@ -20,6 +24,10 @@ export default function StudentPortal({
   courses,
   results,
   fees,
+  registrations,
+  onSetRegistrations,
+  activeSession,
+  activeSemester,
   onLogout,
   loggedInStudent,
   onLoginSuccess,
@@ -31,7 +39,7 @@ export default function StudentPortal({
   const [loginError, setLoginError] = useState('');
 
   // Dashboard state
-  const [activeTab, setActiveTab] = useState<'profile' | 'results' | 'fees'>('results');
+  const [activeTab, setActiveTab] = useState<'profile' | 'results' | 'fees' | 'course-reg'>('results');
   const [selectedSemester, setSelectedSemester] = useState('100L_First');
 
   // Handle Login submission
@@ -249,6 +257,18 @@ export default function StudentPortal({
           </button>
 
           <button 
+            onClick={() => setActiveTab('course-reg')}
+            className={`flex items-center px-6 py-3 border-r-4 transition-all text-left whitespace-nowrap cursor-pointer flex-1 md:flex-none ${
+              activeTab === 'course-reg' 
+                ? 'bg-[#1A2E54] border-[#D4A017] text-white font-semibold' 
+                : 'border-transparent text-slate-300 hover:bg-[#1A2E54]/50 hover:text-white'
+            }`}
+          >
+            <span className="mr-3 opacity-80 text-base">✏️</span>
+            <span className="text-sm">Course Registration</span>
+          </button>
+
+          <button 
             onClick={() => setActiveTab('profile')}
             className={`flex items-center px-6 py-3 border-r-4 transition-all text-left whitespace-nowrap cursor-pointer flex-1 md:flex-none ${
               activeTab === 'profile' 
@@ -300,7 +320,7 @@ export default function StudentPortal({
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 sm:px-8 shrink-0 print:hidden shadow-sm">
           <div className="flex items-center">
             <h2 className="text-base font-bold text-[#0A1F44] font-poppins uppercase tracking-tight">
-              {activeTab === 'results' ? 'Academic Examination Transcripts' : activeTab === 'profile' ? 'Student Digital Dossier' : 'College Finance Account'}
+              {activeTab === 'results' ? 'Academic Examination Transcripts' : activeTab === 'course-reg' ? 'Semester Course Registration' : activeTab === 'profile' ? 'Student Digital Dossier' : 'College Finance Account'}
             </h2>
           </div>
 
@@ -583,6 +603,276 @@ export default function StudentPortal({
                 </div>
 
               </div>
+            </div>
+          )}
+
+          {/* TAB: COURSE REGISTRATION */}
+          {activeTab === 'course-reg' && (
+            <div className="space-y-6 flex-grow animate-fade-in print:block">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:hidden">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-[#0A1F44] font-poppins uppercase">Course Registration Portal</h3>
+                    <p className="text-xs text-slate-400 mt-1">Register your required courses for the active academic session</p>
+                  </div>
+                  <div className="py-1 px-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-xs font-bold text-center">
+                    🗓️ Active Session: {activeSession} | {activeSemester} Semester
+                  </div>
+                </div>
+              </div>
+
+              {registrations.filter(r => 
+                r.studentMatric === loggedInStudent.matricNo &&
+                r.academicSession === activeSession &&
+                r.semester === activeSemester
+              ).length > 0 ? (
+                /* ALREADY REGISTERED: SHOW REGISTRATION SLIP */
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col p-6 print:border-0 print:shadow-none">
+                  {/* Print Top Letterhead */}
+                  <div className="hidden print:block p-8 text-center border-b-2 border-[#0A1F44] mb-8">
+                    <div className="flex justify-center items-center gap-4 mb-3">
+                      <span className="text-5xl">👑</span>
+                      <div className="text-left">
+                        <h1 className="text-3xl font-poppins font-extrabold text-[#0A1F44] uppercase tracking-tight">Crown Heritage College of Health</h1>
+                        <p className="text-sm italic font-semibold text-[#D4A017]">Excellence in Health Education</p>
+                        <p className="text-xs text-slate-500 mt-1">Ogun State, Nigeria | info@crownheritage.edu.ng | Portal: portal.crownheritage.edu.ng</p>
+                      </div>
+                    </div>
+                    <h2 className="text-lg font-bold uppercase tracking-widest text-slate-800 mt-6 border-t pt-4 border-dashed border-slate-300">
+                      OFFICIAL COURSE REGISTRATION SLIP
+                    </h2>
+                  </div>
+
+                  <div className="flex justify-between items-center pb-4 mb-4 border-b print:hidden">
+                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg shrink-0">
+                      ✅ Course Registration Slip Generated
+                    </span>
+                    <button 
+                      onClick={handlePrint}
+                      className="bg-[#0A1F44] hover:bg-slate-800 text-white font-bold px-4 py-2 text-xs rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      🖨️ Print Registration Slip
+                    </button>
+                  </div>
+
+                  {/* Student Info Card for Slip */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs mb-6 border p-4 rounded-xl bg-slate-50">
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block">Student Name:</span> 
+                      <strong className="text-slate-800 uppercase">{loggedInStudent.name}</strong>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block">Matriculation No:</span> 
+                      <strong className="text-[#0A1F44] font-mono">{loggedInStudent.matricNo}</strong>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block">Department &amp; Level:</span> 
+                      <strong className="text-slate-800">{loggedInStudent.programme || loggedInStudent.department} Sciences ({loggedInStudent.level} Level)</strong>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wide block">Session &amp; Semester:</span> 
+                      <strong className="text-stone-700 uppercase">{activeSession} Session - {activeSemester} Semester</strong>
+                    </div>
+                  </div>
+
+                  {/* Registered Courses Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200">
+                          <th className="px-6 py-4">S/N</th>
+                          <th className="px-6 py-4">Course Code</th>
+                          <th className="px-6 py-4">Course Title</th>
+                          <th className="px-6 py-4 text-center">Credit Units</th>
+                          <th className="px-6 py-4 text-center font-bold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm">
+                        {registrations.filter(r => 
+                          r.studentMatric === loggedInStudent.matricNo &&
+                          r.academicSession === activeSession &&
+                          r.semester === activeSemester
+                        ).map((reg, index) => {
+                          const courseDetails = courses.find(c => c.code === reg.courseCode);
+                          return (
+                            <tr key={reg.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                              <td className="px-6 py-4 font-mono font-bold text-slate-400">{index + 1}</td>
+                              <td className="px-6 py-4 font-mono font-bold text-[#0A1F44]">{reg.courseCode}</td>
+                              <td className="px-6 py-4 text-slate-600 font-medium">{courseDetails?.title || 'Unknown Course'}</td>
+                              <td className="px-6 py-4 text-center font-bold font-mono text-slate-700">{courseDetails?.units || 2} Units</td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded uppercase">Compulsory</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Total Units Summary */}
+                  <div className="bg-slate-50 p-6 border-t border-slate-100 flex flex-col sm:flex-row justify-between gap-4 text-xs text-slate-600 print:bg-transparent print:border-slate-300 mt-4">
+                    <div>
+                      <p>Number of Registered Courses: <strong>{registrations.filter(r => r.studentMatric === loggedInStudent.matricNo && r.academicSession === activeSession && r.semester === activeSemester).length} courses</strong></p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p>Total Registered Units: <strong className="text-sm font-mono text-[#0A1F44]">{
+                        registrations.filter(r => 
+                          r.studentMatric === loggedInStudent.matricNo &&
+                          r.academicSession === activeSession &&
+                          r.semester === activeSemester
+                        ).reduce((acc, curr) => {
+                          const c = courses.find(cr => cr.code === curr.courseCode);
+                          return acc + (c ? c.units : 3);
+                        }, 0)
+                      } / 24 Units</strong></p>
+                    </div>
+                  </div>
+
+                  {/* Signatures Panel */}
+                  <div className="hidden print:grid grid-cols-3 gap-12 mt-16 pt-12 border-t border-dashed border-slate-300">
+                    <div className="text-center">
+                      <div className="h-10 border-b border-slate-400 mb-2"></div>
+                      <p className="font-bold uppercase text-[9px] text-slate-500">Student Signature / Date</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="h-10 border-b border-slate-400 mb-2"></div>
+                      <p className="font-bold uppercase text-[9px] text-slate-500">Course Adviser Signature</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="h-10 border-b border-slate-400 mb-2"></div>
+                      <p className="font-bold uppercase text-[9px] text-slate-500">HOD Approval / Seal</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* INCOMPLETE REGISTRATION: SELECT AND REGISTER */
+                <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+                  <div className="mb-6">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Academic Clearance Desk</span>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Welcome to your Course Registry Workspace. You are currently in <strong>{loggedInStudent.level} Level</strong>, belonging to the <strong>{loggedInStudent.department}</strong> department science programs. 
+                        Please select the verified syllabus courses listed below to apply for formal course registry for this term.
+                      </p>
+                    </div>
+                  </div>
+
+                  {courses.filter(c => {
+                    const deptMatch = c.department.toLowerCase() === loggedInStudent.department.toLowerCase() ||
+                                      c.department.toLowerCase() === 'general' ||
+                                      c.department.toLowerCase() === 'gst' ||
+                                      c.department.toLowerCase().includes('general studies');
+                    return deptMatch && c.level === loggedInStudent.level && c.semester === activeSemester;
+                  }).length === 0 ? (
+                    <div className="text-center py-12 text-slate-400">
+                      <span className="text-3xl block filter grayscale mb-2">📚</span>
+                      <p className="text-sm font-semibold text-slate-500">No courses defined by Admin for your Level and Department in this Active semester yet.</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Please inform the Admin/Registry office to define the syllabus courses under the "Manage Syllabus" panel.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Course lists with Checklist checks */}
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        const targetCourses = courses.filter(c => {
+                          const deptMatch = c.department.toLowerCase() === loggedInStudent.department.toLowerCase() ||
+                                            c.department.toLowerCase() === 'general' ||
+                                            c.department.toLowerCase() === 'gst' ||
+                                            c.department.toLowerCase().includes('general studies');
+                          return deptMatch && c.level === loggedInStudent.level && c.semester === activeSemester;
+                        });
+                        
+                        if (confirm('Are you submit-ready? This action registers your courses formally in the semester catalog.')) {
+                          const newRegs: CourseRegistration[] = targetCourses.map(course => ({
+                            id: `${loggedInStudent.matricNo}_${course.code}_${activeSession.replace('/', '-')}_${activeSemester}`,
+                            studentMatric: loggedInStudent.matricNo,
+                            courseCode: course.code,
+                            semester: activeSemester,
+                            academicSession: activeSession,
+                            dateRegistered: new Date().toISOString().split('T')[0]
+                          }));
+                          onSetRegistrations([...registrations, ...newRegs]);
+                          onAddToast("Course registration successful!", "success");
+                        }
+                      }}>
+                        
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 mb-6 bg-slate-50/50">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200 bg-slate-100">
+                                <th className="px-4 py-3 text-center">Compulsory</th>
+                                <th className="px-4 py-3">Course Code</th>
+                                <th className="px-4 py-3">Course Title</th>
+                                <th className="px-4 py-3 text-center">Credit Units</th>
+                                <th className="px-4 py-3 text-center">Semester / Level</th>
+                              </tr>
+                            </thead>
+                            <tbody className="text-xs text-slate-700">
+                              {courses.filter(c => {
+                                const deptMatch = c.department.toLowerCase() === loggedInStudent.department.toLowerCase() ||
+                                                  c.department.toLowerCase() === 'general' ||
+                                                  c.department.toLowerCase() === 'gst' ||
+                                                  c.department.toLowerCase().includes('general studies');
+                                return deptMatch && c.level === loggedInStudent.level && c.semester === activeSemester;
+                              }).map((course) => (
+                                <tr key={course.code} className="border-b border-slate-100 hover:bg-white bg-slate-50/40">
+                                  <td className="px-4 py-4 text-center">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={true}
+                                      disabled={true} // In health schools, course registration is general and mandatory for each stage
+                                      className="w-4 h-4 text-amber-500 focus:ring-amber-500 border-slate-300 rounded cursor-not-allowed"
+                                    />
+                                  </td>
+                                  <td className="px-4 py-4 font-mono font-bold text-[#0A1F44]">{course.code}</td>
+                                  <td className="px-4 py-4 font-semibold">{course.title}</td>
+                                  <td className="px-4 py-4 text-center font-bold font-mono text-slate-800">{course.units} Units</td>
+                                  <td className="px-4 py-4 text-center">
+                                    <span className="px-2 py-0.5 bg-[#0A1F44]/5 text-[#0A1F44] text-[9px] font-extrabold rounded uppercase">{course.level}L</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Credits Check info */}
+                        <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-100 p-4 rounded-xl border mb-6 text-xs text-slate-600 gap-4">
+                          <div>
+                            <p>Total Courses selected: <strong>{courses.filter(c => {
+                                const deptMatch = c.department.toLowerCase() === loggedInStudent.department.toLowerCase() ||
+                                                  c.department.toLowerCase() === 'general' ||
+                                                  c.department.toLowerCase() === 'gst' ||
+                                                  c.department.toLowerCase().includes('general studies');
+                                return deptMatch && c.level === loggedInStudent.level && c.semester === activeSemester;
+                              }).length}</strong></p>
+                            <p className="mt-1">Cumulative units: <strong className="text-sm font-mono text-[#0A1F44]">{
+                              courses.filter(c => {
+                                const deptMatch = c.department.toLowerCase() === loggedInStudent.department.toLowerCase() ||
+                                                  c.department.toLowerCase() === 'general' ||
+                                                  c.department.toLowerCase() === 'gst' ||
+                                                  c.department.toLowerCase().includes('general studies');
+                                return deptMatch && c.level === loggedInStudent.level && c.semester === activeSemester;
+                              }).reduce((sum, c) => sum + c.units, 0)
+                            } Units</strong></p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-bold uppercase">Registration Mandatory for Examination Permit</span>
+                          </div>
+                        </div>
+
+                        <button 
+                          type="submit"
+                          className="w-full bg-[#0A1F44] hover:bg-slate-800 text-[#D4A017] font-extrabold py-4 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-[#0A1F44]/15 transition-all cursor-pointer"
+                        >
+                          Confirm &amp; Register All Semester Courses
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

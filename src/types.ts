@@ -86,3 +86,13 @@ export interface ActivityLog {
   message: string;
   type: 'info' | 'success' | 'warning';
 }
+
+export interface CourseRegistration {
+  id: string; // `${studentMatric}_${courseCode}_${academicSession}_${semester}`
+  studentMatric: string;
+  courseCode: string;
+  semester: 'First' | 'Second';
+  academicSession: string;
+  dateRegistered: string;
+}
+

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Student, Course, Result, Fee, Application, Notice, ActivityLog } from '../types';
+import { Student, Course, Result, Fee, Application, Notice, ActivityLog, CourseRegistration } from '../types';
 import { calculateGradeAndPoints, logAction } from '../seed';
 
 interface AdminPortalProps {
@@ -11,6 +11,10 @@ interface AdminPortalProps {
   applications: Application[];
   notices: Notice[];
   activityLogs: ActivityLog[];
+  registrations: CourseRegistration[];
+  activeSession: string;
+  activeSemester: 'First' | 'Second';
+  onUpdateActiveCalendar: (session: string, semester: 'First' | 'Second') => void;
   onSetStudents: (students: Student[]) => void;
   onSetCourses: (courses: Course[]) => void;
   onSetResults: (results: Result[]) => void;
@@ -42,6 +46,10 @@ export default function AdminPortal({
   applications,
   notices,
   activityLogs,
+  registrations,
+  activeSession,
+  activeSemester,
+  onUpdateActiveCalendar,
   onSetStudents,
   onSetCourses,
   onSetResults,
@@ -1126,6 +1134,71 @@ export default function AdminPortal({
           {/* TAB 4: CURRICULUM SYLLABUS COURSES */}
           {activeTab === 'courses' && (
             <div className="space-y-6 flex-1 flex flex-col">
+              
+              {/* ACTIVE CALENDAR SETTINGS SPACE */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm animate-fade-in">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-2xl">🗓️</span>
+                  <div>
+                    <h3 className="text-sm font-poppins font-extrabold text-[#0A1F44] uppercase tracking-wider">Active Academic Calendar Settings</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Determine the current session and semester for student course registration and examination tracking</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5 flex flex-col justify-center">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wildest">Active Academic Session</label>
+                    <select 
+                      value={activeSession}
+                      onChange={(e) => {
+                        onUpdateActiveCalendar(e.target.value, activeSemester);
+                        onAddToast(`Academic session configured to ${e.target.value}`, 'success');
+                      }}
+                      className="w-full text-xs p-3 bg-slate-50 border rounded-xl font-bold font-mono text-[#0A1F44]"
+                    >
+                      <option value="2024/2025">2024/2025 Academic Session</option>
+                      <option value="2025/2026">2025/2026 Academic Session</option>
+                      <option value="2026/2027">2026/2027 Academic Session</option>
+                      <option value="2027/2028">2027/2028 Academic Session</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wildest">Active Academic Semester</label>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          onUpdateActiveCalendar(activeSession, 'First');
+                          onAddToast('Active semester configured to First Semester', 'success');
+                        }}
+                        className={`flex-1 text-xs py-3 rounded-xl font-bold transition-all cursor-pointer ${
+                          activeSemester === 'First' 
+                            ? 'bg-[#0A1F44] text-[#D4A017] shadow-md shadow-[#01A3DE]/10' 
+                            : 'bg-slate-50 text-slate-600 border hover:bg-slate-100'
+                        }`}
+                      >
+                        First Semester
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          onUpdateActiveCalendar(activeSession, 'Second');
+                          onAddToast('Active semester configured to Second Semester', 'success');
+                        }}
+                        className={`flex-1 text-xs py-3 rounded-xl font-bold transition-all cursor-pointer ${
+                          activeSemester === 'Second' 
+                            ? 'bg-[#0A1F44] text-[#D4A017] shadow-md shadow-[#01A3DE]/10' 
+                            : 'bg-slate-50 text-slate-600 border hover:bg-slate-100'
+                        }`}
+                      >
+                        Second Semester
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-white p-4 rounded-2xl border border-slate-200/80 flex justify-between items-center">
                 <span className="text-xs text-slate-500 font-bold">Total configuration syllabus modules: {courses.length} courses</span>
                 <button 

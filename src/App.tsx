@@ -12,7 +12,8 @@ import {
   Fee, 
   Application, 
   Notice, 
-  ActivityLog 
+  ActivityLog,
+  CourseRegistration
 } from './types';
 
 import LandingPage from './components/LandingPage';
@@ -33,6 +34,11 @@ export default function App() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [registrations, setRegistrations] = useState<CourseRegistration[]>([]);
+
+  // Active Session and Semester Settings (Syncs with Admin Setting space)
+  const [activeSession, setActiveSession] = useState<string>('2024/2025');
+  const [activeSemester, setActiveSemester] = useState<'First' | 'Second'>('First');
 
   // Security and Session states
   const [loggedInAdmin, setLoggedInAdmin] = useState<boolean>(false);
@@ -56,6 +62,8 @@ export default function App() {
     const fetchedApps = getLocalStorageData<Application[]>('chch_applications', []);
     const fetchedNotices = getLocalStorageData<Notice[]>('chch_notices', []);
     const fetchedLogs = getLocalStorageData<ActivityLog[]>('chch_activity_logs', []);
+    const fetchedRegistrations = getLocalStorageData<CourseRegistration[]>('chch_registrations', []);
+    const activeCal = getLocalStorageData<{ session: string; semester: 'First' | 'Second' }>('chch_active_calendar', { session: '2024/2025', semester: 'First' });
     const adminSession = getLocalStorageData<boolean>('chch_admin_session', false);
     const studentSession = getLocalStorageData<string>('chch_student_session', '');
 
@@ -66,6 +74,9 @@ export default function App() {
     setApplications(fetchedApps);
     setNotices(fetchedNotices);
     setActivityLogs(fetchedLogs);
+    setRegistrations(fetchedRegistrations);
+    setActiveSession(activeCal.session);
+    setActiveSemester(activeCal.semester);
     setLoggedInAdmin(adminSession);
 
     if (studentSession) {
@@ -108,6 +119,18 @@ export default function App() {
   const handleSetNotices = (updated: Notice[]) => {
     setNotices(updated);
     saveLocalStorageData('chch_notices', updated);
+  };
+
+  const handleSetRegistrations = (updated: CourseRegistration[]) => {
+    setRegistrations(updated);
+    saveLocalStorageData('chch_registrations', updated);
+  };
+
+  const handleUpdateActiveCalendar = (session: string, semester: 'First' | 'Second') => {
+    setActiveSession(session);
+    setActiveSemester(semester);
+    saveLocalStorageData('chch_active_calendar', { session, semester });
+    logAction(`Updated calendar configuration: ${session} Session, ${semester} Semester`, 'info');
   };
 
   const handleSetAdminLogin = (status: boolean) => {
@@ -194,6 +217,10 @@ export default function App() {
           courses={courses}
           results={results}
           fees={fees}
+          registrations={registrations}
+          onSetRegistrations={handleSetRegistrations}
+          activeSession={activeSession}
+          activeSemester={activeSemester}
           loggedInStudent={loggedInStudent}
           onLoginSuccess={(st) => handleSetStudentLogin(st)}
           onLogout={handleLogoutStudent}
@@ -211,6 +238,10 @@ export default function App() {
           applications={applications}
           notices={notices}
           activityLogs={activityLogs}
+          registrations={registrations}
+          activeSession={activeSession}
+          activeSemester={activeSemester}
+          onUpdateActiveCalendar={handleUpdateActiveCalendar}
           onSetStudents={handleSetStudents}
           onSetCourses={handleSetCourses}
           onSetResults={handleSetResults}
