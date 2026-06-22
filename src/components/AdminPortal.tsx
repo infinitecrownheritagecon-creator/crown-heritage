@@ -297,9 +297,19 @@ export default function AdminPortal({
       return;
     }
 
-    // Generate neat unique Matric Number
+    // Generate neat unique Matric Number (starting from 001 numerically for the given year, e.g. 2025)
     const levelCode = '2025';
-    const numPart = String(100 + students.length + 1).slice(-3);
+    const sameYearStudents = students.filter(s => s.matricNo.startsWith(`CHCH/${levelCode}/`));
+    let nextSeq = 1;
+    if (sameYearStudents.length > 0) {
+      const indices = sameYearStudents.map(s => {
+        const parts = s.matricNo.split('/');
+        const partNum = parseInt(parts[parts.length - 1], 10);
+        return isNaN(partNum) ? 0 : partNum;
+      });
+      nextSeq = Math.max(...indices) + 1;
+    }
+    const numPart = String(nextSeq).padStart(3, '0');
     const matricNo = `CHCH/${levelCode}/${numPart}`;
 
     const newStudent: Student = {
@@ -923,6 +933,8 @@ export default function AdminPortal({
                         <th className="px-6 py-4 cursor-pointer" onClick={() => toggleSort('name')}>Student Full Name {sortField === 'name' ? (sortAsc ? '▲' : '▼') : ''}</th>
                         <th className="px-6 py-4 cursor-pointer" onClick={() => toggleSort('department')}>Department {sortField === 'department' ? (sortAsc ? '▲' : '▼') : ''}</th>
                         <th className="px-6 py-4 cursor-pointer" onClick={() => toggleSort('level')}>Level {sortField === 'level' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                        <th className="px-6 py-4">Portal Username</th>
+                        <th className="px-6 py-4">Portal Password (Surname)</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4 text-center">Settings</th>
                       </tr>
@@ -938,6 +950,8 @@ export default function AdminPortal({
                           <td className="px-6 py-4 font-bold text-slate-800">{s.name}</td>
                           <td className="px-6 py-4 text-[#0A1F44] font-medium">{s.department}</td>
                           <td className="px-6 py-4 font-bold">{s.level} Level</td>
+                          <td className="px-6 py-4 font-mono font-bold text-[#0A1F44] bg-slate-50/50">{s.matricNo}</td>
+                          <td className="px-6 py-4 font-mono text-amber-700 bg-amber-50/30 font-semibold">{s.surname}</td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${s.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{s.status}</span>
                           </td>
@@ -973,11 +987,15 @@ export default function AdminPortal({
                       <p className="text-xs">✉ {selectedStudentDetail.email}</p>
                       <p className="text-xs mt-2 text-slate-500">Origin State: {selectedStudentDetail.stateOfOrigin} State</p>
                     </div>
-                    <div>
+                     <div>
                       <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Curriculum Details</span>
                       <p className="text-xs">Department: {selectedStudentDetail.department}</p>
                       <p className="text-xs font-bold text-[#D4A017]">Programme: {selectedStudentDetail.programme}</p>
-                      <p className="text-xs mt-2 text-slate-400">Portal password (Surname): <strong>{selectedStudentDetail.surname.toUpperCase()}</strong></p>
+                      <div className="mt-3 p-2 bg-slate-100 rounded-lg border">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase">Portal Credentials:</p>
+                        <p className="text-xs mt-1 text-slate-700">Username: <strong className="font-mono text-[#0A1F44]">{selectedStudentDetail.matricNo}</strong></p>
+                        <p className="text-xs text-slate-700">Password: <strong className="font-mono text-amber-700 uppercase">{selectedStudentDetail.surname}</strong></p>
+                      </div>
                     </div>
                   </div>
                 )}

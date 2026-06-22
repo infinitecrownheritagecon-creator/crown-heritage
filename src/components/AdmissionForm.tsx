@@ -115,10 +115,11 @@ export default function AdmissionForm({ onBack, onSubmitSuccess, programmes }: A
       return;
     }
 
-    // Generate unique Application Number
+    // Generate unique Application Number (Registration Number starting from 001 numerically)
     const existing = JSON.parse(localStorage.getItem('chch_applications') || '[]');
-    const nextNum = 1000 + existing.length + Math.floor(Math.random() * 90);
-    const applicationNo = `CHCH/2025/${nextNum}`;
+    const nextNum = existing.length + 1;
+    const numPart = String(nextNum).padStart(3, '0');
+    const applicationNo = `CHCH/2025/REG/${numPart}`;
 
     const newApp: Application = {
       applicationNo,
